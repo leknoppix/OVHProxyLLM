@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxy
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - OVH_TOKEN_ENDPOINT=your_ovh_token_here
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - webui_network
+  
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    restart: always
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://proxy:8000/  # On pointe vers le proxy
+      - RAG_EMBEDDING_MODEL=local
+      - DISABLE_OLLAMA_STREAMING=true
+      - OPENAI_API_KEY=dummy
+      - WEBUI_AUTH=false
+      - WEBUI_SECRET_KEY=mysecretkey
+      - WEBUI_JWT_SECRET_KEY=mysecretkey123456789
+      - WEBUI_ALLOW_REGISTRATION=true
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - webui_network
+
+volumes:
+  open-webui-data:
+    name: open-webui-data
+
+networks:
+  webui_network:
+    driver: bridge 
