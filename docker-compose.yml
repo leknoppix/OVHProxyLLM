@@ -1,23 +1,24 @@
 version: '3'
 
 services:
-  proxy:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: proxy
-    restart: always
-    ports:
-      - "8000:8000"
-    environment:
-      - OVH_TOKEN_ENDPOINT=your_ovh_token_here
-    healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    networks:
-      - webui_network
+  # Proxy service is commented out as we are now running it directly on the host
+  # proxy:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: proxy
+  #   restart: always
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - OVH_TOKEN_ENDPOINT=eyJhbGciOiJFZERTQSJ9.eyJwcm9qZWN0IjoiNGFhNWYzNDFkYWZhNGFiOWEyZmIxYmIwOWRmNWIxMWIiLCJhdWQiOiIzNzM4NjExNjY0MDQzMDM0IiwiZXhwIjoxODI4ODE2ODMwLCJqdGkiOiI0OWE2YjIyYy1iM2JjLTQxOTMtYmQ2NS1kYTBkMzg4OWJhNWIiLCJpc3MiOiJ0cmFpbmluZy5haS5jbG91ZC5vdmgubmV0Iiwic3ViIjoibXAxMzU3MC1vdmgiLCJvdmhUb2tlbiI6IkM5YXY2YXc4MzcwbnNMZnYwSnVOSFNHem16dXJiek4xUmc2WVJ6TmN5WjNJQTJmTkpDMkFabVZZbmQzTHNrUk54eG8wSUprLVhKTXdpRTg4LXFNM2stVkx1bEtfYlRTQzV4X3BBU2dsRFRSMDNUOUdHN0FHVnRYcDVfdEVhZ0FKNDhTREtNd2ZvbWNMa1dUVXRkREdpdG9PYVBuLWQ2dEVwY0FaS1haNmtpdFk2TDRqLXdZX2RNS2Z4U2tqOWV5NkxyNEZvWS1lUVhyVkp0R0NuLTVVWkJjSE5xZjVNeGxhRjNMQjR6TUwwbTFnQ1B5ZFlHcmVpVTJrNkxUOFFNZGVwcE01NExSTDVxanEybEJxLVJuWnlXY2NRUFJiaTk0MTUwOUduZmNBSHN1d3UwZWFBaWhBTExiSl9pN1dEX25Ud0ZxVVBDQWpGcTI1U05BWlZmbWZ4Z0ViUzFUd29SVS1ZTlhEZ3NXUXdvOGJQekZVMy14eTJ6YjhuQTJzX1R6YUJhX0lWTHpNdEpOLVFYWXNQSVRGNDNySEc0bTYwUTBjRWhQejJ0MHA4SUg4VHc0Q2VEQ3BLVFJOS2N6X2ljM1VhcmFtRkE0Rm02OGUyM0JLQjR2WmFCRWVEZUZ6SHppYkFpY2FUVzRRUmZCQzRLMHJpdjdYM1ZudVl3c1k5RzVSR2Z6MmdyUkpMX29RWmVvbXN5by1OWHFMa2l6RWZqLUh0cTl1WTVTMmdvd1M0bzRSVlFvMGxTblZjNmVBbk1TTHRQQWpaaGwzbHItNmhfc0VNU0ctY0tUYkFkTEYtOGZ1S25OZUN0bXhjbDhSWElOUU1EbG9tLVNqN1RKbFRuSGlBdFFMVDlGa3pheThSRjRiSmVMaHlTQkNpV2FUNS10QmR4cDZhS1RkT0NQLUR4WXV5WVpiUXpDaVYxdldmSHd2dHZpZ0kxcUVJeU9TTW9qRm1rMU9kcW56QmFuTzczMjZOaHR2ZTJZM3lpeVdsUzBXYm9DT1dYUU5rUml3YnJKWmJER3I0aTZwLUEyR1lLejVvUmk3OFg3RWFxM0tHWTdnaWktYnBMZ1lRSGJzb0J4U2hIOFBfbXJ2ZWU3WG5MSWNRNkpnNGRjX0hMcWd2eW9wQ0djWlpRNV8xb2NQTzRWMVQzNVZZSXRrRVFtUEgwaFZ4bWdnMHpIelB1NWdrbWpNV2l0R0VfSmVCeGY0ckpCQl9vdmRsYV9VaTZmQW9LbHVkZEZpcDZHb1RSWjh1aEpMSG51SW5pYzhUeGpHeklpTnlNV0MyR0lUT1FQTG10VGZrZkMwOXZzVVRwTjVzWjkzOTRlOFZmWDNXZEZQIn0.rP388Y2lB2rKqaSnHzX5o1yO6CN_Vs1o3jaG3c274hrNVQl7BtbgGzDOGOZ2y3MDVVkeyhqsZTO_ScFRwSVtAw
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-O", "-", "http://localhost:8000/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #   networks:
+  #     - webui_network
   
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
@@ -26,7 +27,7 @@ services:
     ports:
       - "3000:8080"
     environment:
-      - OLLAMA_BASE_URL=http://proxy:8000/  # On pointe vers le proxy
+      - OLLAMA_BASE_URL=http://host.docker.internal:8000/  # Pointer vers l'hôte au lieu du conteneur proxy
       - RAG_EMBEDDING_MODEL=local
       - DISABLE_OLLAMA_STREAMING=true
       - OPENAI_API_KEY=dummy
@@ -34,11 +35,13 @@ services:
       - WEBUI_SECRET_KEY=mysecretkey
       - WEBUI_JWT_SECRET_KEY=mysecretkey123456789
       - WEBUI_ALLOW_REGISTRATION=true
+      - WEBUI_CORS_ALLOWED_ORIGINS=*
+      - OAI_CONFIG_LIST=[{"model":"llama-3-3-70b-instruct:latest","model_max_tokens":4096}]
+      - OAI_MAX_TOKENS=4096
+      - OPENAI_REQUEST_TIMEOUT=120
+      - OPENAI_API_BASE=http://host.docker.internal:8000
     volumes:
       - open-webui-data:/app/backend/data
-    depends_on:
-      proxy:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-O", "-", "http://localhost:8080/health"]
       interval: 15s
@@ -46,6 +49,8 @@ services:
       retries: 3
     networks:
       - webui_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Permet d'accéder à l'hôte depuis le conteneur
 
 volumes:
   open-webui-data:

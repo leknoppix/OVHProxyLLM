@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -15,30 +16,32 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
+# Logs et fichiers temporaires
+/tmp/
+*.log
+*.swp
+*.swo
+.DS_Store
+
+# Fichiers de configuration sensibles
+.env
+proxy/.env
+
+# Fichiers Docker
+.docker/
+
 # Environnements virtuels
 venv/
 ENV/
-env/
-.env
 
-# Logs
-*.log
-logs/
-
-# Éditeurs et IDE
+# IDEs et éditeurs
 .idea/
 .vscode/
-*.swp
-*.swo
-
-# Docker
-.docker/
-
-# Système
-.DS_Store
-Thumbs.db 
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject 
