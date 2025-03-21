@@ -137,47 +137,135 @@ EOF
     echo -e "${GREEN}Fichier requirements.txt créé avec succès.${NC}"
 }
 
+# Vérifier si les packages Python requis sont déjà installés
+check_python_packages() {
+    echo -e "${YELLOW}Vérification des packages Python requis...${NC}"
+    
+    # Liste des packages à vérifier
+    PACKAGES=("fastapi" "uvicorn" "requests" "dotenv" "PIL")
+    MISSING_PACKAGES=()
+    
+    for pkg in "${PACKAGES[@]}"; do
+        if ! $PYTHON_CMD -c "import $pkg" &> /dev/null; then
+            MISSING_PACKAGES+=("$pkg")
+        fi
+    done
+    
+    if [ ${#MISSING_PACKAGES[@]} -eq 0 ]; then
+        echo -e "${GREEN}Tous les packages Python requis sont déjà installés.${NC}"
+        return 0
+    else
+        echo -e "${YELLOW}Packages manquants: ${MISSING_PACKAGES[*]}${NC}"
+        return 1
+    fi
+}
+
 # Installer les dépendances Python
 install_python_dependencies() {
-    echo -e "${YELLOW}Installation des dépendances Python en mode utilisateur...${NC}"
-    
-    # Mettre à jour pip
-    $PIP_CMD install --user --upgrade pip
-    
-    # Installer les dépendances
-    $PIP_CMD install --user -r requirements.txt
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Erreur lors de l'installation des dépendances Python.${NC}"
-        echo -e "${YELLOW}Si vous utilisez Arch Linux ou un système avec un environnement Python géré:${NC}"
-        
-        echo -e "${BLUE}Options alternatives:${NC}"
-        echo -e "1. ${YELLOW}Utiliser l'option --break-system-packages:${NC}"
-        echo -e "   ${YELLOW}$PIP_CMD install --user --break-system-packages -r requirements.txt${NC}"
-        echo -e ""
-        echo -e "2. ${YELLOW}Installer les packages via votre gestionnaire de paquets:${NC}"
-        echo -e "   Sur Arch Linux: ${YELLOW}sudo pacman -S python-fastapi python-uvicorn python-requests python-dotenv python-pillow${NC}"
-        
-        exit 1
+    # Vérifier d'abord si tous les packages sont déjà installés
+    if check_python_packages; then
+        echo -e "${GREEN}Aucune installation supplémentaire n'est nécessaire.${NC}"
+        return 0
     fi
     
-    # Vérifier que les packages sont bien installés
-    echo -e "${YELLOW}Vérification de l'installation des packages...${NC}"
-    if $PYTHON_CMD -c "import fastapi, uvicorn, requests, dotenv, PIL" &> /dev/null; then
-        echo -e "${GREEN}Tous les packages nécessaires sont installés.${NC}"
+    echo -e "${YELLOW}Installation des dépendances Python...${NC}"
+    
+    # Détecter le type de système
+    IS_DEBIAN=0
+    IS_ARCH=0
+    
+    if [ -f "/etc/debian_version" ]; then
+        IS_DEBIAN=1
+        echo -e "${BLUE}Système basé sur Debian/Ubuntu détecté.${NC}"
+    elif [ -f "/etc/arch-release" ]; then
+        IS_ARCH=1
+        echo -e "${BLUE}Système Arch Linux détecté.${NC}"
+    fi
+    
+    # Première tentative: installation utilisateur standard
+    echo -e "${YELLOW}Tentative d'installation en mode utilisateur...${NC}"
+    $PIP_CMD install --user -r requirements.txt &> /tmp/pip_install_log.txt
+    
+    # Vérifier si l'installation a réussi
+    if check_python_packages; then
+        echo -e "${GREEN}Dépendances Python installées avec succès en mode utilisateur.${NC}"
+        # Ajouter ~/.local/bin au PATH si nécessaire
+        if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+            echo -e "${YELLOW}Ajout temporaire de ~/.local/bin au PATH pour cette session.${NC}"
+            export PATH="$HOME/.local/bin:$PATH"
+        fi
+        return 0
+    fi
+    
+    # Si la première tentative échoue à cause d'un environnement géré en externe
+    if grep -q "externally-managed-environment" /tmp/pip_install_log.txt; then
+        # Selon le type de système, proposer différentes solutions
+        if [ $IS_DEBIAN -eq 1 ]; then
+            echo -e "${YELLOW}Tentative d'installation avec --break-system-packages (Debian/Ubuntu)...${NC}"
+            $PIP_CMD install --user --break-system-packages -r requirements.txt
+            
+            if check_python_packages; then
+                echo -e "${GREEN}Dépendances Python installées avec succès.${NC}"
+                return 0
+            fi
+            
+            echo -e "${YELLOW}Installation via apt...${NC}"
+            echo -e "${BLUE}Vous pouvez installer les packages via apt:${NC}"
+            echo -e "${YELLOW}sudo apt install python3-fastapi python3-uvicorn python3-requests python3-dotenv python3-pil${NC}"
+            
+        elif [ $IS_ARCH -eq 1 ]; then
+            echo -e "${YELLOW}Tentative d'installation avec --break-system-packages (Arch Linux)...${NC}"
+            $PIP_CMD install --user --break-system-packages -r requirements.txt
+            
+            if check_python_packages; then
+                echo -e "${GREEN}Dépendances Python installées avec succès.${NC}"
+                return 0
+            fi
+            
+            echo -e "${YELLOW}Installation via pacman...${NC}"
+            echo -e "${BLUE}Vous pouvez installer les packages via pacman:${NC}"
+            echo -e "${YELLOW}sudo pacman -S python-fastapi python-uvicorn python-requests python-dotenv python-pillow${NC}"
+        else
+            # Pour les autres systèmes
+            echo -e "${YELLOW}Tentative d'installation avec --break-system-packages...${NC}"
+            $PIP_CMD install --user --break-system-packages -r requirements.txt
+            
+            if check_python_packages; then
+                echo -e "${GREEN}Dépendances Python installées avec succès.${NC}"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Si aucune des méthodes n'a fonctionné
+    echo -e "${RED}Échec de l'installation automatique des packages Python.${NC}"
+    echo -e "${YELLOW}Options alternatives:${NC}"
+    echo -e ""
+    echo -e "1. ${YELLOW}Installer manuellement avec break-system-packages:${NC}"
+    echo -e "   ${YELLOW}$PIP_CMD install --user --break-system-packages fastapi==0.104.1 uvicorn==0.23.2 requests==2.31.0 python-dotenv==1.0.0 Pillow==10.1.0${NC}"
+    echo -e ""
+    echo -e "2. ${YELLOW}Installer via le gestionnaire de paquets système:${NC}"
+    
+    if [ $IS_DEBIAN -eq 1 ]; then
+        echo -e "   ${YELLOW}sudo apt install python3-fastapi python3-uvicorn python3-requests python3-dotenv python3-pil${NC}"
+    elif [ $IS_ARCH -eq 1 ]; then
+        echo -e "   ${YELLOW}sudo pacman -S python-fastapi python-uvicorn python-requests python-dotenv python-pillow${NC}"
+    fi
+    
+    echo -e ""
+    echo -e "3. ${BLUE}Continuer sans installation supplémentaire:${NC}"
+    echo -e "   ${YELLOW}Si vous avez déjà installé les bibliothèques requises via d'autres méthodes, vous pouvez continuer.${NC}"
+    echo -e ""
+    
+    # Demander à l'utilisateur s'il veut continuer ou non
+    read -p "Voulez-vous continuer l'installation malgré ce problème? (o/n) " USER_CHOICE
+    
+    if [[ "$USER_CHOICE" == "o" || "$USER_CHOICE" == "O" || "$USER_CHOICE" == "oui" || "$USER_CHOICE" == "Oui" ]]; then
+        echo -e "${YELLOW}Poursuite de l'installation...${NC}"
+        return 0
     else
-        echo -e "${YELLOW}Attention: Certains packages ne semblent pas correctement installés.${NC}"
-        echo -e "${YELLOW}Utilisez la commande suivante pour voir le chemin de recherche Python:${NC}"
-        echo -e "${BLUE}$PYTHON_CMD -c 'import sys; print(sys.path)'${NC}"
-    fi
-    
-    echo -e "${GREEN}Dépendances Python installées avec succès en mode utilisateur.${NC}"
-    echo -e "${YELLOW}Note: Pour exécuter le proxy, assurez-vous que ~/.local/bin est dans votre PATH.${NC}"
-    
-    # Ajouter ~/.local/bin au PATH si nécessaire
-    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-        echo -e "${YELLOW}Ajout temporaire de ~/.local/bin au PATH pour cette session.${NC}"
-        export PATH="$HOME/.local/bin:$PATH"
+        echo -e "${RED}Installation interrompue.${NC}"
+        exit 1
     fi
 }
 
@@ -228,7 +316,14 @@ make_script_executable() {
 check_proxy_module() {
     echo -e "${YELLOW}Vérification de l'intégrité du module proxy...${NC}"
     
-    if [ ! -d "proxy" ] || [ ! -f "proxy/app.py" ]; then
+    if [ ! -d "proxy" ]; then
+        echo -e "${RED}Attention: Répertoire proxy manquant.${NC}"
+        echo -e "${YELLOW}Vérifiez que vous avez cloné le dépôt complet.${NC}"
+        return 1
+    fi
+    
+    # Vérifier un des fichiers principaux du module proxy (app.py ou main.py)
+    if [ ! -f "proxy/app.py" ] && [ ! -f "proxy/main.py" ]; then
         echo -e "${RED}Attention: Module proxy incomplet ou manquant.${NC}"
         echo -e "${YELLOW}Vérifiez que vous avez cloné le dépôt complet ou utilisez:${NC}"
         echo -e "${YELLOW}git clone [URL_REPO] && cd [NOM_REPO]${NC}"
