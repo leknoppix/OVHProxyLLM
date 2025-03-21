@@ -8,11 +8,36 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-WORKSPACE_DIR="/home/public_html/webui"
+# Utiliser le répertoire courant au lieu d'un chemin absolu
+WORKSPACE_DIR="$(pwd)"
 PROXY_PORT=8000
 WEBUI_PORT=3000
 LOG_DIR="/tmp/ovh-llm-logs"
 PID_FILE="/tmp/ovh-proxy.pid"
+
+# Déterminer les commandes python et docker-compose à utiliser
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
+    echo -e "${RED}Erreur: Ni python3 ni python ne sont installés. Veuillez installer Python 3.${NC}"
+    exit 1
+fi
+
+if command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+elif docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+else
+    echo -e "${RED}Erreur: Docker Compose n'est pas installé. Veuillez l'installer.${NC}"
+    exit 1
+fi
+
+# S'assurer que ~/.local/bin est dans le PATH pour les installations en mode utilisateur
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
 
 # Créer le répertoire de logs s'il n'existe pas
 mkdir -p $LOG_DIR
@@ -52,11 +77,12 @@ start_proxy() {
     fi
     
     # Tuer toute instance existante
-    pkill -f "python -m proxy.main" > /dev/null 2>&1 || true
+    pkill -f "$PYTHON_CMD -m proxy.main" > /dev/null 2>&1 || true
     
     # Lancer le serveur avec nohup pour qu'il reste en arrière-plan
+    # Utiliser le répertoire courant
     cd $WORKSPACE_DIR
-    nohup python -m proxy.main > $LOG_DIR/proxy.log 2>&1 &
+    nohup $PYTHON_CMD -m proxy.main > $LOG_DIR/proxy.log 2>&1 &
     
     # Enregistrer le PID
     echo $! > $PID_FILE
@@ -73,6 +99,17 @@ start_proxy() {
         return 0
     else
         echo -e "${RED}Erreur: Le proxy ne répond pas. Vérifiez les logs: $LOG_DIR/proxy.log${NC}"
+        echo -e "${YELLOW}Affichage des 10 dernières lignes des logs:${NC}"
+        tail -n 10 $LOG_DIR/proxy.log
+        
+        # Vérifier si les modules Python sont correctement installés
+        echo -e "${YELLOW}Vérification de l'installation des modules Python...${NC}"
+        if ! $PYTHON_CMD -c "import fastapi, uvicorn, requests, dotenv, PIL" &> /dev/null; then
+            echo -e "${RED}Erreur: Certains modules Python requis ne sont pas installés ou accessibles.${NC}"
+            echo -e "${YELLOW}Exécutez à nouveau le script d'installation ou installez manuellement avec:${NC}"
+            echo -e "${BLUE}$PIP_CMD install --user fastapi uvicorn requests python-dotenv Pillow${NC}"
+        fi
+        
         return 1
     fi
 }
@@ -82,13 +119,13 @@ start_webui() {
     echo -e "${YELLOW}Démarrage de l'interface Web...${NC}"
     
     # Vérifier si docker est installé
-    if ! command -v docker-compose &> /dev/null; then
-        echo -e "${RED}Erreur: docker-compose n'est pas installé.${NC}"
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}Erreur: Docker n'est pas installé.${NC}"
         return 1
     fi
     
     cd $WORKSPACE_DIR
-    docker-compose up -d openwebui
+    $COMPOSE_CMD up -d openwebui
     
     # Vérifier si le conteneur a bien démarré
     sleep 3
@@ -96,7 +133,8 @@ start_webui() {
         echo -e "${GREEN}Interface Web démarrée avec succès et accessible sur http://localhost:$WEBUI_PORT${NC}"
         return 0
     else
-        echo -e "${RED}Erreur: L'interface Web n'a pas démarré correctement. Vérifiez les logs: docker logs openwebui${NC}"
+        echo -e "${RED}Erreur: L'interface Web n'a pas démarré correctement. Vérifiez les logs:${NC}"
+        echo -e "${YELLOW}docker logs openwebui${NC}"
         return 1
     fi
 }
@@ -114,10 +152,10 @@ stop_proxy() {
         echo -e "${GREEN}Proxy arrêté.${NC}"
     else
         # Essayer de trouver le processus sans le fichier PID
-        PIDS=$(pgrep -f "python -m proxy.main")
+        PIDS=$(pgrep -f "$PYTHON_CMD -m proxy.main")
         if [ -n "$PIDS" ]; then
             echo -e "${YELLOW}Processus trouvés: $PIDS. Arrêt en cours...${NC}"
-            pkill -f "python -m proxy.main"
+            pkill -f "$PYTHON_CMD -m proxy.main"
             echo -e "${GREEN}Proxy arrêté.${NC}"
         else
             echo -e "${YELLOW}Aucun processus de proxy trouvé.${NC}"
@@ -130,7 +168,7 @@ stop_webui() {
     echo -e "${YELLOW}Arrêt de l'interface Web...${NC}"
     
     cd $WORKSPACE_DIR
-    docker-compose stop openwebui
+    $COMPOSE_CMD stop openwebui
     
     echo -e "${GREEN}Interface Web arrêtée.${NC}"
 }
@@ -192,6 +230,7 @@ update_token() {
     
     # Mettre à jour le token dans le fichier .env
     echo -e "${YELLOW}Mise à jour du token OVH...${NC}"
+    mkdir -p "$WORKSPACE_DIR/proxy"
     echo -e "# Configuration du proxy OVH\nOVH_TOKEN_ENDPOINT=$NEW_TOKEN" > "$WORKSPACE_DIR/proxy/.env"
     
     # Redémarrer le proxy
@@ -210,7 +249,11 @@ test_proxy() {
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Test réussi. Réponse:${NC}"
-        echo "$RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$RESPONSE"
+        if command -v python3 &> /dev/null; then
+            echo "$RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$RESPONSE"
+        else
+            echo "$RESPONSE" | python -m json.tool 2>/dev/null || echo "$RESPONSE"
+        fi
     else
         echo -e "${RED}Erreur lors du test.${NC}"
     fi
