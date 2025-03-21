@@ -16,6 +16,45 @@ Pour utiliser cette application, vous avez besoin d'un token d'accès OVH. Rende
 https://kepler.ai.cloud.ovh.net/v1/oauth/ovh/authorize?iam_action=publicCloudProject:ai:endpoints/call
 ```
 
+## Installation
+
+### Installation rapide
+
+Pour une installation rapide, utilisez le script d'installation fourni :
+
+```bash
+# Cloner le dépôt
+git clone https://github.com/votre-repo/ovh-llm-webui.git
+cd ovh-llm-webui
+
+# Exécuter le script d'installation
+./install.sh
+```
+
+Le script d'installation vérifie les prérequis, installe les dépendances Python et vous guide dans la configuration initiale.
+
+### Déploiement sur un nouveau serveur
+
+Pour déployer l'application sur un nouveau serveur, suivez ces étapes :
+
+1. Clonez le dépôt sur votre serveur :
+   ```bash
+   git clone https://github.com/votre-repo/ovh-llm-webui.git
+   cd ovh-llm-webui
+   ```
+
+2. Exécutez le script d'installation :
+   ```bash
+   ./install.sh
+   ```
+
+3. Suivez les instructions pour configurer votre token OVH.
+
+4. Démarrez l'application :
+   ```bash
+   ./ovh-llm-webui.sh start
+   ```
+
 ## Commandes disponibles
 
 Le script `ovh-llm-webui.sh` permet de gérer facilement tous les aspects de l'application :
@@ -107,3 +146,7 @@ Si vous rencontrez des problèmes, vérifiez les points suivants :
 3. Redémarrez l'application avec `./ovh-llm-webui.sh restart`
 
 Si vous avez l'erreur "Forbidden: authentication failed", votre token est probablement expiré. Générez-en un nouveau et mettez-le à jour avec la commande `token`.
+
+### Erreur "No such file or directory"
+
+Si vous rencontrez l'erreur `cd: /home/public_html/webui: No such file or directory`, cela signifie que vous exécutez le script depuis un chemin différent de celui qui était codé en dur. Notre nouvelle version du script utilise le répertoire courant, donc assurez-vous de lancer le script depuis le répertoire où se trouve les fichiers de l'application.
