@@ -61,6 +61,7 @@ show_help() {
     echo "  status      Afficher le statut des services"
     echo "  logs        Afficher les logs du proxy"
     echo "  token       Mettre à jour le token OVH"
+    echo "  tunnel      Démarrer/arrêter Cloudflare Tunnel"
     echo "  test        Tester le proxy avec une requête simple"
     echo "  help        Afficher ce message d'aide"
     echo ""
@@ -139,6 +140,34 @@ start_webui() {
     fi
 }
 
+# Fonction pour démarrer Cloudflare Tunnel
+start_cloudflared() {
+    echo -e "${YELLOW}Démarrage de Cloudflare Tunnel...${NC}"
+    
+    # Vérifier si le fichier .env existe et contient le token
+    if [ ! -f ".env" ] || ! grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+        echo -e "${RED}Erreur: Configuration Cloudflare Tunnel manquante.${NC}"
+        echo -e "${YELLOW}Exécutez ./install.sh pour configurer Cloudflare Tunnel ou créez un fichier .env avec:${NC}"
+        echo -e "${BLUE}CLOUDFLARE_TUNNEL_TOKEN=votre_token_cloudflare${NC}"
+        return 1
+    fi
+    
+    cd $WORKSPACE_DIR
+    $COMPOSE_CMD up -d cloudflared
+    
+    # Vérifier si le conteneur a bien démarré
+    sleep 3
+    if docker ps | grep -q cloudflared; then
+        echo -e "${GREEN}Cloudflare Tunnel démarré avec succès.${NC}"
+        echo -e "${GREEN}Votre application est maintenant accessible via Internet.${NC}"
+        return 0
+    else
+        echo -e "${RED}Erreur: Cloudflare Tunnel n'a pas démarré correctement. Vérifiez les logs:${NC}"
+        echo -e "${YELLOW}docker logs cloudflared${NC}"
+        return 1
+    fi
+}
+
 # Fonction pour arrêter le proxy
 stop_proxy() {
     echo -e "${YELLOW}Arrêt du proxy OVH...${NC}"
@@ -173,6 +202,16 @@ stop_webui() {
     echo -e "${GREEN}Interface Web arrêtée.${NC}"
 }
 
+# Fonction pour arrêter Cloudflare Tunnel
+stop_cloudflared() {
+    echo -e "${YELLOW}Arrêt de Cloudflare Tunnel...${NC}"
+    
+    cd $WORKSPACE_DIR
+    $COMPOSE_CMD stop cloudflared
+    
+    echo -e "${GREEN}Cloudflare Tunnel arrêté.${NC}"
+}
+
 # Fonction pour afficher le statut des services
 show_status() {
     echo -e "${YELLOW}Statut des services:${NC}"
@@ -198,6 +237,24 @@ show_status() {
         echo -e "  URL:    ${GREEN}http://localhost:$WEBUI_PORT${NC}"
     else
         echo -e "  Statut: ${RED}Arrêté${NC}"
+    fi
+    
+    # Vérifier le statut de Cloudflare Tunnel
+    echo -e "${BLUE}Cloudflare Tunnel:${NC}"
+    if docker ps | grep -q cloudflared; then
+        echo -e "  Statut: ${GREEN}En cours d'exécution${NC}"
+        echo -e "  Info:   ${GREEN}Votre application est accessible via Internet.${NC}"
+        echo -e "  Logs:   ${YELLOW}docker logs cloudflared${NC}"
+    else
+        echo -e "  Statut: ${RED}Arrêté${NC}"
+        
+        # Vérifier si la configuration Cloudflare est présente
+        if [ -f ".env" ] && grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+            echo -e "  Config: ${GREEN}Configuré mais non démarré${NC}"
+        else
+            echo -e "  Config: ${RED}Non configuré${NC}"
+            echo -e "  Configurez avec: ${YELLOW}./install.sh${NC} (option Cloudflare Tunnel)"
+        fi
     fi
 }
 
@@ -239,6 +296,46 @@ update_token() {
     echo -e "${GREEN}Token OVH mis à jour avec succès.${NC}"
 }
 
+# Fonction pour gérer Cloudflare Tunnel
+manage_tunnel() {
+    TUNNEL_ACTION=$1
+    
+    case "$TUNNEL_ACTION" in
+        start)
+            start_cloudflared
+            ;;
+        stop)
+            stop_cloudflared
+            ;;
+        restart)
+            stop_cloudflared
+            sleep 2
+            start_cloudflared
+            ;;
+        status)
+            echo -e "${YELLOW}Statut de Cloudflare Tunnel:${NC}"
+            if docker ps | grep -q cloudflared; then
+                echo -e "  Statut: ${GREEN}En cours d'exécution${NC}"
+                echo -e "  Info:   ${GREEN}Votre application est accessible via Internet.${NC}"
+                echo -e "  Logs:   ${YELLOW}docker logs cloudflared${NC}"
+            else
+                echo -e "  Statut: ${RED}Arrêté${NC}"
+                
+                # Vérifier si la configuration Cloudflare est présente
+                if [ -f ".env" ] && grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+                    echo -e "  Config: ${GREEN}Configuré mais non démarré${NC}"
+                else
+                    echo -e "  Config: ${RED}Non configuré${NC}"
+                    echo -e "  Configurez avec: ${YELLOW}./install.sh${NC} (option Cloudflare Tunnel)"
+                fi
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}Usage:${NC} $0 tunnel [start|stop|restart|status]"
+            ;;
+    esac
+}
+
 # Fonction pour tester le proxy
 test_proxy() {
     echo -e "${YELLOW}Test du proxy avec une requête simple...${NC}"
@@ -265,6 +362,13 @@ print_banner
 case "$1" in
     start)
         start_proxy && start_webui
+        
+        # Démarrer Cloudflare Tunnel si configuré
+        if [ -f ".env" ] && grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+            echo -e "${YELLOW}Configuration Cloudflare Tunnel détectée, démarrage du tunnel...${NC}"
+            start_cloudflared
+        fi
+        
         # Afficher les instructions après le démarrage
         echo ""
         echo -e "${GREEN}Services démarrés avec succès!${NC}"
@@ -274,14 +378,31 @@ case "$1" in
     stop)
         stop_proxy
         stop_webui
+        
+        # Arrêter Cloudflare Tunnel si en cours d'exécution
+        if docker ps | grep -q cloudflared; then
+            stop_cloudflared
+        fi
+        
         echo -e "${GREEN}Tous les services ont été arrêtés.${NC}"
         ;;
     restart)
         stop_proxy
         stop_webui
+        
+        # Arrêter Cloudflare Tunnel si en cours d'exécution
+        if docker ps | grep -q cloudflared; then
+            stop_cloudflared
+        fi
+        
         echo "Redémarrage des services..."
         sleep 2
         start_proxy && start_webui
+        
+        # Redémarrer Cloudflare Tunnel si configuré
+        if [ -f ".env" ] && grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+            start_cloudflared
+        fi
         ;;
     status)
         show_status
@@ -291,6 +412,9 @@ case "$1" in
         ;;
     token)
         update_token "$2"
+        ;;
+    tunnel)
+        manage_tunnel "$2"
         ;;
     test)
         test_proxy

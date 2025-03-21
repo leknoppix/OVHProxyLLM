@@ -269,34 +269,92 @@ install_python_dependencies() {
     fi
 }
 
-# Configurer le fichier .env
-configure_env_file() {
-    echo -e "${YELLOW}Configuration du fichier .env...${NC}"
+# Configurer le fichier .env dans le répertoire proxy
+configure_proxy_env_file() {
+    echo -e "${YELLOW}Configuration du fichier .env pour le proxy...${NC}"
     
     # Créer le répertoire proxy s'il n'existe pas
     mkdir -p proxy
     
     # Vérifier si le fichier .env existe
     if [ -f "proxy/.env" ]; then
-        echo -e "Le fichier .env existe déjà."
-        return 0
-    fi
-    
-    # Demander le token OVH
-    echo -e "${BLUE}Pour utiliser les modèles OVH LLM, vous avez besoin d'un token.${NC}"
-    echo -e "${BLUE}Vous pouvez l'obtenir ici:${NC}"
-    echo -e "${YELLOW}https://kepler.ai.cloud.ovh.net/v1/oauth/ovh/authorize?iam_action=publicCloudProject:ai:endpoints/call${NC}"
-    echo ""
-    
-    read -p "Entrez votre token OVH (ou laissez vide pour configurer plus tard): " OVH_TOKEN
-    
-    # Créer le fichier .env
-    cat > proxy/.env << EOF
+        echo -e "Le fichier proxy/.env existe déjà."
+    else
+        # Demander le token OVH
+        echo -e "${BLUE}Pour utiliser les modèles OVH LLM, vous avez besoin d'un token.${NC}"
+        echo -e "${BLUE}Vous pouvez l'obtenir ici:${NC}"
+        echo -e "${YELLOW}https://kepler.ai.cloud.ovh.net/v1/oauth/ovh/authorize?iam_action=publicCloudProject:ai:endpoints/call${NC}"
+        echo ""
+        
+        read -p "Entrez votre token OVH (ou laissez vide pour configurer plus tard): " OVH_TOKEN
+        
+        # Créer le fichier .env
+        cat > proxy/.env << EOF
 # Configuration du proxy OVH
 OVH_TOKEN_ENDPOINT=${OVH_TOKEN}
 EOF
+        
+        echo -e "${GREEN}Fichier proxy/.env créé avec succès.${NC}"
+    fi
+}
+
+# Configurer le fichier .env à la racine pour Cloudflare Tunnel
+configure_cloudflare_tunnel() {
+    echo -e "${YELLOW}Configuration de Cloudflare Tunnel...${NC}"
     
-    echo -e "${GREEN}Fichier .env créé avec succès.${NC}"
+    # Vérifier si le fichier .env existe à la racine
+    if [ -f ".env" ] && grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+        echo -e "Le fichier .env avec configuration Cloudflare existe déjà."
+        return 0
+    fi
+    
+    # Demander si l'utilisateur souhaite configurer Cloudflare Tunnel
+    echo -e "${BLUE}Souhaitez-vous configurer Cloudflare Tunnel pour exposer l'application sur Internet?${NC}"
+    read -p "Configurer Cloudflare Tunnel? (o/n): " SETUP_CLOUDFLARE
+    
+    if [[ "$SETUP_CLOUDFLARE" == "o" || "$SETUP_CLOUDFLARE" == "O" || "$SETUP_CLOUDFLARE" == "oui" || "$SETUP_CLOUDFLARE" == "Oui" ]]; then
+        echo -e "${BLUE}Pour utiliser Cloudflare Tunnel, vous avez besoin d'un token.${NC}"
+        echo -e "${BLUE}Vous pouvez en créer un sur:${NC}"
+        echo -e "${YELLOW}https://dash.cloudflare.com/?to=/:account/workers-and-pages${NC}"
+        echo ""
+        
+        read -p "Entrez votre token Cloudflare Tunnel: " CLOUDFLARE_TOKEN
+        
+        # Créer ou mettre à jour le fichier .env à la racine
+        if [ -f ".env" ]; then
+            # Ajouter le token à un fichier existant
+            if ! grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+                echo "" >> .env
+                echo "# Configuration Cloudflare Tunnel" >> .env
+                echo "CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}" >> .env
+            else
+                # Remplacer le token existant
+                sed -i "s/CLOUDFLARE_TUNNEL_TOKEN=.*/CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}/" .env
+            fi
+        else
+            # Créer un nouveau fichier .env
+            cat > .env << EOF
+# Configuration Cloudflare Tunnel
+CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
+EOF
+        fi
+        
+        echo -e "${GREEN}Configuration Cloudflare Tunnel terminée avec succès.${NC}"
+        
+        # Mettre à jour le fichier proxy/.env pour ajouter le token Cloudflare
+        if [ -f "proxy/.env" ]; then
+            if ! grep -q "CLOUDFLARE_TUNNEL_TOKEN" proxy/.env; then
+                echo "" >> proxy/.env
+                echo "# Configuration Cloudflare Tunnel" >> proxy/.env
+                echo "CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}" >> proxy/.env
+            else
+                # Remplacer le token existant
+                sed -i "s/CLOUDFLARE_TUNNEL_TOKEN=.*/CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}/" proxy/.env
+            fi
+        fi
+    else
+        echo -e "${YELLOW}Configuration de Cloudflare Tunnel ignorée.${NC}"
+    fi
 }
 
 # Rendre le script principal exécutable
@@ -347,8 +405,11 @@ main() {
     # Installer les dépendances Python
     install_python_dependencies
     
-    # Configurer le fichier .env
-    configure_env_file
+    # Configurer le fichier .env pour le proxy
+    configure_proxy_env_file
+    
+    # Configurer Cloudflare Tunnel
+    configure_cloudflare_tunnel
     
     # Rendre le script principal exécutable
     make_script_executable
@@ -368,6 +429,15 @@ main() {
     echo -e "${YELLOW}Si vous n'avez pas encore configuré votre token OVH:${NC}"
     echo -e "${BLUE}./ovh-llm-webui.sh token [VOTRE_TOKEN]${NC}"
     echo ""
+    
+    # Afficher des instructions pour Cloudflare Tunnel si configuré
+    if [ -f ".env" ] && grep -q "CLOUDFLARE_TUNNEL_TOKEN" .env; then
+        echo -e "${YELLOW}Votre application est configurée avec Cloudflare Tunnel et sera accessible via Internet.${NC}"
+        echo -e "${YELLOW}Pour vérifier l'état du tunnel, consultez votre tableau de bord Cloudflare:${NC}"
+        echo -e "${BLUE}https://dash.cloudflare.com/?to=/:account/workers-and-pages${NC}"
+        echo ""
+    fi
+    
     echo -e "${YELLOW}Pour obtenir de l'aide:${NC}"
     echo -e "${BLUE}./ovh-llm-webui.sh help${NC}"
     echo ""

@@ -52,6 +52,19 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Permet d'accéder à l'hôte depuis le conteneur
 
+  # Service Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - openwebui
+    networks:
+      - webui_network
+
 volumes:
   open-webui-data:
     name: open-webui-data
