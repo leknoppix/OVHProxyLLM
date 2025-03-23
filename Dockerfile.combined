@@ -1,0 +1,107 @@
+FROM python:3.11-slim
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Installation des dépendances système
+RUN apt-get update && \
+    apt-get install -y wget curl gnupg git procps && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copier le contenu du répertoire proxy
+COPY proxy/ /app/proxy/
+
+# Installer les dépendances Python pour le proxy
+WORKDIR /app/proxy
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Retourner au répertoire principal
+WORKDIR /app
+
+# Installer Node.js 20.x et npm pour Open WebUI
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    node --version && npm --version
+
+# Cloner Open WebUI et utiliser une version stable
+WORKDIR /app
+RUN git clone https://github.com/open-webui/open-webui.git /app/open-webui && \
+    cd /app/open-webui && \
+    git checkout v0.5.20 -b stable-build
+
+# Configurer et construire Open WebUI avec plus de mémoire allouée
+WORKDIR /app/open-webui
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Utiliser une stratégie de construction plus légère
+RUN npm install --no-audit --no-fund && \
+    npm run build
+
+# Créer un script de démarrage pour lancer les deux services
+WORKDIR /app
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "Démarrage du conteneur combiné proxy + Open WebUI..."\n\
+\n\
+# Vérification des variables d\'environnement\n\
+echo "Configuration des variables d\'environnement..."\n\
+\n\
+# Démarrer le proxy en arrière-plan\n\
+echo "Démarrage du proxy..."\n\
+python -m proxy.main > /app/proxy.log 2>&1 &\n\
+PROXY_PID=$!\n\
+\n\
+# Vérifier que le proxy est bien démarré\n\
+echo "Attente du démarrage du proxy..."\n\
+sleep 5\n\
+if ! ps -p $PROXY_PID > /dev/null; then\n\
+    echo "ERREUR: Le proxy n\'a pas démarré correctement. Voici les logs:"\n\
+    cat /app/proxy.log\n\
+    exit 1\n\
+fi\n\
+echo "Proxy démarré avec succès (PID: $PROXY_PID)"\n\
+\n\
+# Test d\'accès au proxy\n\
+echo "Test d\'accès au proxy..."\n\
+curl -s http://localhost:8000/health || {\n\
+    echo "ERREUR: Impossible d\'accéder au proxy. Voici les logs:"\n\
+    cat /app/proxy.log\n\
+    exit 1\n\
+}\n\
+echo "Proxy accessible."\n\
+\n\
+# Définir les variables d\'environnement pour Open WebUI\n\
+echo "Configuration d\'Open WebUI..."\n\
+export OLLAMA_BASE_URL=http://localhost:8000/\n\
+export RAG_EMBEDDING_MODEL=local\n\
+export DISABLE_OLLAMA_STREAMING=true\n\
+export OPENAI_API_KEY=dummy\n\
+export WEBUI_AUTH=false\n\
+export WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-mysecretkey}\n\
+export WEBUI_JWT_SECRET_KEY=${WEBUI_JWT_SECRET_KEY:-mysecretkey123456789}\n\
+export WEBUI_ALLOW_REGISTRATION=true\n\
+export WEBUI_CORS_ALLOWED_ORIGINS=*\n\
+export OAI_CONFIG_LIST="[{\\"model\\":\\"llama-3-3-70b-instruct:latest\\",\\"model_max_tokens\\":4096}]"\n\
+export OAI_MAX_TOKENS=4096\n\
+export OPENAI_REQUEST_TIMEOUT=120\n\
+export OPENAI_API_BASE=http://localhost:8000\n\
+\n\
+# Démarrer Open WebUI\n\
+echo "Démarrage d\'Open WebUI..."\n\
+cd /app/open-webui && NODE_OPTIONS="--max-old-space-size=4096" node -r dotenv/config build\n\
+\n\
+# Cette partie ne devrait être exécutée que si npm start se termine\n\
+echo "Open WebUI s\'est arrêté, arrêt du proxy..."\n\
+kill $PROXY_PID\n\
+echo "Conteneur arrêté."\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Exposer les ports nécessaires
+EXPOSE 8000 3000
+
+# Commande de démarrage
+CMD ["/app/start.sh"] 

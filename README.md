@@ -62,19 +62,19 @@ Le script `ovh-llm-webui.sh` permet de gérer facilement tous les aspects de l'a
 
 ### Démarrer l'application
 
-```bash
+   ```bash
 ./ovh-llm-webui.sh start
-```
+   ```
 
 ### Arrêter l'application
 
-```bash
+   ```bash
 ./ovh-llm-webui.sh stop
-```
+   ```
 
 ### Redémarrer l'application
 
-```bash
+   ```bash
 ./ovh-llm-webui.sh restart
 ```
 
