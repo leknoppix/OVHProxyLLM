@@ -1,0 +1,16 @@
+{
+  "alternative_endpoints": {
+    "mistral-7b-instruct-v0.3": [
+      "https://mistral-7b-instruct-v0-3.endpoints.alternative1.ai.cloud.ovh.net",
+      "https://mistral-7b-instruct-v0-3.endpoints.alternative2.ai.cloud.ovh.net"
+    ],
+    "mixtral-8x7b-instruct-v0.1": [
+      "https://mixtral-8x7b-instruct-v01.endpoints.alternative1.ai.cloud.ovh.net"
+    ],
+    "llama-3-1-70b-instruct": [
+      "https://llama-3-1-70b-instruct.endpoints.alternative1.ai.cloud.ovh.net",
+      "https://llama-3-1-70b-instruct.endpoints.alternative2.ai.cloud.ovh.net",
+      "https://llama-3-1-70b-instruct.endpoints.alternative3.ai.cloud.ovh.net"
+    ]
+  }
+}

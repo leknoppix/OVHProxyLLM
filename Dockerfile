@@ -20,4 +20,4 @@ WORKDIR /app
 EXPOSE 8000
 
 # Commande de démarrage
-CMD ["python", "-m", "proxy.main"] 
+CMD ["python", "-m", "proxy.main"]

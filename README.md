@@ -117,6 +117,24 @@ Le script `ovh-llm-webui.sh` permet de gérer facilement tous les aspects de l'a
 ./ovh-llm-webui.sh help
 ```
 
+### Exécuter les tests
+
+```bash
+./ovh-llm-webui.sh tests
+```
+
+Pour exécuter les tests dans le conteneur Docker :
+
+```bash
+./ovh-llm-webui.sh docker-tests
+```
+
+Pour exécuter uniquement les tests rapides sans le test de chat completions :
+
+```bash
+docker exec -e ENABLE_CHAT_TEST=false proxy python -m proxy.tests.quick_test
+```
+
 ## Accès à l'interface web
 
 Une fois démarrée, l'interface web est accessible à l'adresse :
@@ -167,6 +185,40 @@ Certains modèles ont des capacités particulières :
 - **mamba-codestral-7b-v0-1** : Modèle optimisé pour la génération de code et les questions techniques liées à la programmation
 - **deepseek-r1-distill-llama-70b** : Modèle performant avec capacités visuelles (peut interpréter des images)
 - **stable-diffusion-xl** : Modèle de génération d'images
+
+## Tests
+
+L'application inclut une suite de tests pour vérifier son bon fonctionnement :
+
+### Tests rapides
+
+Pour exécuter un test rapide de l'application :
+
+```bash
+python -m proxy.tests.quick_test
+```
+
+### Tests complets
+
+Pour exécuter tous les tests :
+
+```bash
+python -m proxy.tests.run_tests
+```
+
+### Tests dans Docker
+
+Pour exécuter les tests dans le conteneur Docker :
+
+```bash
+# Test rapide
+docker exec proxy python -m proxy.tests.quick_test
+
+# Tous les tests
+docker exec proxy python -m proxy.tests.run_tests
+```
+
+Pour plus de détails sur les tests, consultez le [README des tests](proxy/tests/README.md).
 
 ## Dépannage
 

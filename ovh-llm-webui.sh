@@ -63,6 +63,8 @@ show_help() {
     echo "  token       Mettre à jour le token OVH"
     echo "  tunnel      Démarrer/arrêter Cloudflare Tunnel"
     echo "  test        Tester le proxy avec une requête simple"
+    echo "  tests       Exécuter les tests du proxy"
+    echo "  docker-tests Exécuter les tests dans le conteneur Docker"
     echo "  help        Afficher ce message d'aide"
     echo ""
 }
@@ -356,6 +358,67 @@ test_proxy() {
     fi
 }
 
+# Fonction pour exécuter les tests
+run_tests() {
+    echo -e "${YELLOW}Exécution des tests du proxy OVH...${NC}"
+    
+    # Vérifier si le proxy est en cours d'exécution
+    if ! curl -s http://localhost:$PROXY_PORT/health > /dev/null; then
+        echo -e "${RED}Erreur: Le proxy n'est pas en cours d'exécution. Démarrez-le d'abord avec '$0 start'.${NC}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}=======================================================${NC}"
+    echo -e "${BLUE}= Tests du proxy OVH LLM                            =${NC}"
+    echo -e "${BLUE}=======================================================${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}1. Test rapide${NC}"
+    cd $WORKSPACE_DIR
+    $PYTHON_CMD -m proxy.tests.quick_test
+    
+    echo ""
+    echo -e "${YELLOW}Voulez-vous exécuter les tests complets? (y/n)${NC}"
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        echo -e "${YELLOW}2. Tests complets${NC}"
+        $PYTHON_CMD -m proxy.tests.run_tests
+    fi
+    
+    echo ""
+    echo -e "${GREEN}Tests terminés.${NC}"
+}
+
+# Fonction pour exécuter les tests dans Docker
+run_docker_tests() {
+    echo -e "${YELLOW}Exécution des tests dans le conteneur Docker...${NC}"
+    
+    # Vérifier si le conteneur proxy est en cours d'exécution
+    if ! docker ps | grep -q proxy; then
+        echo -e "${RED}Erreur: Le conteneur proxy n'est pas en cours d'exécution. Démarrez-le d'abord avec '$0 start'.${NC}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}=======================================================${NC}"
+    echo -e "${BLUE}= Tests Docker du proxy OVH LLM                     =${NC}"
+    echo -e "${BLUE}=======================================================${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}1. Test rapide dans Docker${NC}"
+    docker exec proxy python -m proxy.tests.quick_test
+    
+    echo ""
+    echo -e "${YELLOW}Voulez-vous exécuter les tests complets dans Docker? (y/n)${NC}"
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        echo -e "${YELLOW}2. Tests complets dans Docker${NC}"
+        docker exec proxy python -m proxy.tests.run_tests
+    fi
+    
+    echo ""
+    echo -e "${GREEN}Tests Docker terminés.${NC}"
+}
+
 # Menu principal
 print_banner
 
@@ -418,6 +481,12 @@ case "$1" in
         ;;
     test)
         test_proxy
+        ;;
+    tests)
+        run_tests
+        ;;
+    docker-tests)
+        run_docker_tests
         ;;
     help|*)
         show_help

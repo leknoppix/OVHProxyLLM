@@ -32,7 +32,7 @@ services:
       - RAG_EMBEDDING_MODEL=local
       - DISABLE_OLLAMA_STREAMING=true
       - OPENAI_API_KEY=dummy
-      - WEBUI_AUTH=false
+      - WEBUI_AUTH=YES
       - WEBUI_SECRET_KEY=mysecretkey
       - WEBUI_JWT_SECRET_KEY=mysecretkey123456789
       - WEBUI_ALLOW_REGISTRATION=true
@@ -53,43 +53,6 @@ services:
     depends_on:
       - proxy
 
-  # Service combiné WebUI + Proxy (commenté car nous utilisons les services séparés)
-  # webui-proxy-combined:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.combined
-  #   container_name: webui-proxy-combined
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8000:8000"  # Port pour le proxy
-  #     - "3000:3000"  # Port pour Open WebUI
-  #   environment:
-  #     - OVH_TOKEN_ENDPOINT=${OVH_TOKEN_ENDPOINT}
-  #     - WEBUI_AUTH=false
-  #     - WEBUI_SECRET_KEY=mysecretkey
-  #     - WEBUI_JWT_SECRET_KEY=mysecretkey123456789
-  #     - WEBUI_ALLOW_REGISTRATION=true
-  #     - WEBUI_CORS_ALLOWED_ORIGINS=*
-  #     - NODE_OPTIONS=--max-old-space-size=4096
-  #   volumes:
-  #     - open-webui-data:/app/open-webui/data
-  #     - ./logs:/app/logs
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -s http://localhost:8000/health || exit 1"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
-  #   networks:
-  #     - webui_network
-  #   # Définir des limites de ressources appropriées
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 6G
-  #       reservations:
-  #         memory: 2G
-
   # Service Cloudflare Tunnel
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -109,4 +72,4 @@ volumes:
 
 networks:
   webui_network:
-    driver: bridge 
+    driver: bridge

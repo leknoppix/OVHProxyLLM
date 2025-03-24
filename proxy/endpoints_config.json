@@ -1,0 +1,10 @@
+{
+  "alternative_endpoints": {
+    "mistral-7b-instruct-v0.3": [
+      "https://mistral-7b-instruct-v0-3.endpoints.kepler.ai.cloud.ovh.net"
+    ],
+    "mixtral-8x7b-instruct-v0.1": [
+      "https://mixtral-8x7b-instruct-v01.endpoints.kepler.ai.cloud.ovh.net"
+    ]
+  }
+}
