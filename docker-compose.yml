@@ -32,7 +32,7 @@ services:
       - RAG_EMBEDDING_MODEL=local
       - DISABLE_OLLAMA_STREAMING=true
       - OPENAI_API_KEY=dummy
-      - WEBUI_AUTH=YES
+      - WEBUI_AUTH=TRUE
       - WEBUI_SECRET_KEY=mysecretkey
       - WEBUI_JWT_SECRET_KEY=mysecretkey123456789
       - WEBUI_ALLOW_REGISTRATION=true
@@ -66,10 +66,9 @@ services:
     networks:
       - webui_network
 
-volumes:
-  open-webui-data:
-    name: open-webui-data
-
 networks:
   webui_network:
     driver: bridge
+
+volumes:
+  open-webui-data:
